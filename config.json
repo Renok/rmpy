@@ -1,0 +1,9 @@
+{
+  "trash_path": "/home/pride/Workspace/univ/python/lab2/trash/files/",
+  "info_path": "/home/pride/Workspace/univ/python/lab2/trash/info/",
+  "log_path": "/home/pride/Workspace/univ/python/lab2/mylog.log",
+  "dry": false,
+  "silent": false,
+  "confirm": false,
+  "politic": "size"
+}

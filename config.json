@@ -5,5 +5,5 @@
   "dry": false,
   "silent": false,
   "confirm": false,
-  "politic": "size"
+  "policy": "size"
 }

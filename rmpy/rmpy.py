@@ -1,3 +1,8 @@
+"""
+All pretty pieces of this program is a result of Ballmer peak
+Unfortunately the remaining 90% is the result of falling into the Ballmer tail
+"""
+
 import os
 import sys
 import time
@@ -31,7 +36,7 @@ def main():
     parser.add_argument("--trash", help="Trash path")
     parser.add_argument("--log", help="Log path")
     parser.add_argument("--config", help="Upload config")
-    parser.add_argument("--politic", help="Recycle politic")
+    parser.add_argument("--policy", help="Recycle policy")
     args = parser.parse_args()
 
     config = load_config()
@@ -41,7 +46,7 @@ def main():
     dry = config["dry"]
     silent = config["silent"]
     confirm = config["confirm"]
-    politic = config["politic"]
+    policy = config["policy"]
     log_path = config["log_path"]
     info_path = config["info_path"]
     trash_path = config["trash_path"]
@@ -58,8 +63,8 @@ def main():
         trash_path = args.trash
     if args.log:
         log_path = args.log
-    if args.politic:
-        politic = args.politic
+    if args.policy:
+        policy = args.policy
 
     logging.basicConfig(format=u'%(levelname)-8s [%(asctime)s] %(message)s', level=logging.DEBUG, filename=log_path)
 
@@ -80,7 +85,7 @@ def main():
     if args.s:
         show_trash(trash_path, num=int(args.s))
 
-    recycle_politic(politic, trash_path, info_path)
+    recycle_policy(policy, trash_path, info_path)
 
 
 def get_size(path):
@@ -92,13 +97,14 @@ def get_size(path):
     return total_size
 
 
-def recycle_politic(politic, trash_path, info_path):
-    if politic == "time":
-        if time.asctime().split(' ')[0] == "Mon":
+def recycle_policy(policy, trash_path, info_path):
+    if policy == "time":
+        if time.asctime().split(' ')[0] == "Sat":
             empty_trash(trash_path, info_path, True)
-    if politic == "size":
+    if policy == "size":
         if get_size(trash_path) + get_size(info_path) >= 100000:
             empty_trash(trash_path, info_path, True)
+    return policy
 
 
 def output(silent, code, *args):
@@ -172,10 +178,30 @@ def remove_by_regex(regex, trash_path, info_path, dry, silent):
     return files_num
 
 
+# :*(
+def recursive(path1, path2):
+    if os.path.isdir(path1):
+        if os.path.exists(path2):
+            for obj in path1:
+                p1_obj = os.path.join(path1, obj)
+                p2_obj = os.path.join(path2, obj)
+                if not os.path.isdir(p1_obj):
+                    os.replace(p1_obj, p2_obj)
+                elif os.path.isdir(p1_obj):
+                    if os.path.exists(p2_obj):
+                        recursive(p1_obj, p2_obj)
+                    else:
+                        shutil.move(p1_obj, p2_obj)
+        shutil.rmtree(path1)
+    else:
+        shutil.rmtree(path2)
+        os.replace(path1, path2)
+
+
 def recover(target, trash_path, info_path, dry, silent):
     try:
-        info = os.path.join(info_path + target)
-        trash = os.path.join(trash_path + target)
+        info = os.path.join(info_path, target)
+        trash = os.path.join(trash_path, target)
 
         with open(info, 'r') as file:
             path = file.read()
@@ -196,9 +222,14 @@ def recover(target, trash_path, info_path, dry, silent):
         output(silent, Codes.BAD.value, "No such file")
 
     except OSError:
-        for obj in os.listdir(trash):
-            shutil.move(os.path.join(trash, obj), os.path.join(path, obj))
-        shutil.rmtree(trash)
+        if os.path.isdir(trash):
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+                shutil.move(trash, path)
+            else:
+                os.replace(path)
+                shutil.move(trash, path)
+
         os.remove(info)
 
         logging.info(target + " Recovery conflict")
@@ -245,7 +276,7 @@ def show_trash(trash_path, num):
     else:
         print("Trash is empty")
 
-    return 0
+    return len(trash_list)
 
 
 if __name__ == '__main__':

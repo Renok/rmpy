@@ -15,7 +15,7 @@ from rmpy.config_tools import load_config
 
 def main():
     parser = argparse.ArgumentParser(description="Mine rm")
-    parser.add_argument("remove", nargs="?", help="File to delete")
+    parser.add_argument("remove", nargs="*", help="File to delete")
     parser.add_argument("-rec", dest="recover", help="Recover file")
     parser.add_argument("-re", dest="regex", help="Use regex")
     parser.add_argument("-e", dest="empty", action="store_true", help="Empty trash")
@@ -67,8 +67,13 @@ def main():
     if confirm:
         confirmation()
     if args.remove:
-        answer = remove(args.remove, trash_path, info_path, dry, silent, force)
-        output(silent, answer[0], answer[1], " File(s) were removed")
+        files_num = 0
+        for target in args.remove:
+            code, files = remove(target, trash_path, info_path, dry, silent, force)
+            if code != Codes.GOOD.value:
+                output(silent, code, files, " File(s) were removed")
+            files_num += files
+        output(silent, Codes.GOOD.value, files_num, " File(s) were removed")
     if args.recover:
         code = recover(args.recover, trash_path, info_path, dry, silent)
         output(silent, code, "File recovered")

@@ -9,7 +9,7 @@ import logging
 import argparse
 import datetime
 
-from rmpy.secondary import *
+from rmpy.auxiliary_tools import *
 from rmpy.config_tools import load_config
 
 
@@ -66,6 +66,7 @@ def main():
 
     if confirm:
         confirmation()
+
     if args.remove:
         files_num = 0
         for target in args.remove:
@@ -74,15 +75,19 @@ def main():
                 output(silent, code, files, " File(s) were removed")
             files_num += files
         output(silent, Codes.GOOD.value, files_num, " File(s) were removed")
+
     if args.recover:
         code = recover(args.recover, trash_path, info_path, dry, silent)
         output(silent, code, "File recovered")
+
     if args.regex:
         answer = remove_by_regex(args.regex, trash_path, info_path, dry, silent, force)
         output(silent, answer[0], answer[1], " File(s) were removed")
+
     if args.empty:
         code = empty_trash(trash_path, info_path)
         output(silent, code, "Trash is empty now")
+
     if args.show:
         show_trash(trash_path, num=int(args.show))
 
@@ -143,13 +148,13 @@ def remove_by_regex(regex, trash_path, info_path, dry, silent, force=False):
     files = glob.glob(regex)
 
     if files:
-        # i = 0
-        # l = len(files)
-        # print_progress_bar(i, l, prefix='Progress:', suffix='Complete', length=50)
+        i = 0
+        l = len(files)
         for obj in glob.glob(regex):
             files_num += remove(obj, trash_path, info_path, dry, silent, force)[1]
-            # i += 1
-            # print_progress_bar(i, l, prefix='Progress:', suffix='Complete', length=50)
+            i += 1
+            if not silent:
+                print_progress_bar(i, l, prefix='Progress:', suffix='Complete', length=50)
 
     else:
         logging.info(regex + " No regex matches")

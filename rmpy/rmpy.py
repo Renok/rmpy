@@ -1,34 +1,26 @@
 """
-All pretty pieces of this program is a result of Ballmer peak
-Unfortunately the remaining 90% is the result of falling into the Ballmer tail
+All pretty pieces of this program is a result of Ballmer peak.
+Unfortunately the remaining 90% is the result of falling into the Ballmer tail.
 """
 
-import os
-import sys
-import time
 import glob
 import shutil
 import logging
 import argparse
+import datetime
 
-from enum import Enum
-
-from rmpy.trash_config import load_config
-
-
-class Codes(Enum):
-    GOOD = 0
-    ALMOST_GOOD = 1
-    BAD = 2
+from rmpy.secondary import *
+from rmpy.config_tools import load_config
 
 
 def main():
     parser = argparse.ArgumentParser(description="Mine rm")
-    parser.add_argument("d", nargs="?", help="File to delete")
-    parser.add_argument("-r", help="Recover file")
-    parser.add_argument("-re", help="Use regex")
-    parser.add_argument("-e", action="store_true", help="Empty trash")
-    parser.add_argument("-s", nargs="?", const=10, help="Show trash")
+    parser.add_argument("remove", nargs="?", help="File to delete")
+    parser.add_argument("-rec", dest="recover", help="Recover file")
+    parser.add_argument("-re", dest="regex", help="Use regex")
+    parser.add_argument("-e", dest="empty", action="store_true", help="Empty trash")
+    parser.add_argument("-s", dest="show", nargs="?", const=10, help="Show trash")
+    parser.add_argument("-f", dest="force", action="store_true", help="Ignore nonexistent files")
     parser.add_argument("--dry", action="store_true", help="Dry run")
     parser.add_argument("--confirm", action="store_true", help="Confirm mode")
     parser.add_argument("--silent", action="store_true", help="Silent mode")
@@ -41,12 +33,14 @@ def main():
 
     config = load_config()
     if args.config:
-        config.update(load_config(args.config))
+        new_config = args.config
+        config.update(load_config(new_config))
 
     dry = config["dry"]
     silent = config["silent"]
     confirm = config["confirm"]
     policy = config["policy"]
+    force = config["force"]
     log_path = config["log_path"]
     info_path = config["info_path"]
     trash_path = config["trash_path"]
@@ -65,62 +59,40 @@ def main():
         log_path = args.log
     if args.policy:
         policy = args.policy
+    if args.force:
+        force = True
 
     logging.basicConfig(format=u'%(levelname)-8s [%(asctime)s] %(message)s', level=logging.DEBUG, filename=log_path)
 
     if confirm:
-        answer = input("Are you sure? [y/n]\n")
-        if answer != 'y':
-            print("Operation canceled")
-            return
-
-    if args.d:
-        remove(args.d, trash_path, info_path, dry, silent)
-    if args.r:
-        recover(args.r, trash_path, info_path, dry, silent)
-    if args.re:
-        remove_by_regex(args.re, trash_path, info_path, dry, silent)
-    if args.e:
-        empty_trash(trash_path, info_path, silent)
-    if args.s:
-        show_trash(trash_path, num=int(args.s))
+        confirmation()
+    if args.remove:
+        answer = remove(args.remove, trash_path, info_path, dry, silent, force)
+        output(silent, answer[0], answer[1], " File(s) were removed")
+    if args.recover:
+        code = recover(args.recover, trash_path, info_path, dry, silent)
+        output(silent, code, "File recovered")
+    if args.regex:
+        answer = remove_by_regex(args.regex, trash_path, info_path, dry, silent, force)
+        output(silent, answer[0], answer[1], " File(s) were removed")
+    if args.empty:
+        code = empty_trash(trash_path, info_path)
+        output(silent, code, "Trash is empty now")
+    if args.show:
+        show_trash(trash_path, num=int(args.show))
 
     recycle_policy(policy, trash_path, info_path)
 
 
-def get_size(path):
-    total_size = 0
-    for dir_path, dirs, files in os.walk(path):
-        for f in files:
-            fp = os.path.join(dir_path, f)
-            total_size += os.path.getsize(fp)
-    return total_size
-
-
-def recycle_policy(policy, trash_path, info_path):
-    if policy == "time":
-        if time.asctime().split(' ')[0] == "Sat":
-            empty_trash(trash_path, info_path, True)
-    if policy == "size":
-        if get_size(trash_path) + get_size(info_path) >= 100000:
-            empty_trash(trash_path, info_path, True)
-    return policy
-
-
-def output(silent, code, *args):
-    if not silent:
-        print(''.join(map(str, args)))
-    else:
-        sys.exit(code)
-
-
-def remove(target, trash_path, info_path, dry, silent, by_re=False):
+def remove(target, trash_path, info_path, dry, silent, force=False):
     files_num = 0
+    code = Codes.GOOD.value
     target_path = os.path.abspath(target)
 
     try:
         info = os.path.join(info_path, os.path.basename(target_path))
         trash = os.path.join(trash_path, os.path.basename(target_path))
+        os.rename(target_path, target_path)
 
         if not dry:
             if os.path.isdir(target_path):
@@ -143,43 +115,46 @@ def remove(target, trash_path, info_path, dry, silent, by_re=False):
 
             files_num += 1
             logging.info(target_path + " File removed")
-            if not by_re:
-                output(silent, Codes.GOOD.value, files_num, " file(s) were removed")
 
         else:
-            if os.path.exists(target_path):
+            if not silent:
                 print(target_path, " would be replaced to trash")
-            else:
-                print("No such file")
 
     except FileNotFoundError:
-        logging.error(target_path + " No such file to remove")
-        output(silent, Codes.BAD.value, "No such file")
+        if not force:
+            logging.error(target_path + " No such file to remove")
+            code = Codes.NO_FILE.value
 
     except Exception:
         logging.error("Unknown error")
-        output(silent, Codes.BAD.value, "Some $hit happened")
+        code = Codes.BAD.value
 
-    return files_num
+    return code, files_num
 
 
-def remove_by_regex(regex, trash_path, info_path, dry, silent):
+def remove_by_regex(regex, trash_path, info_path, dry, silent, force=False):
     files_num = 0
+    code = Codes.GOOD.value
+    files = glob.glob(regex)
 
-    if not glob.glob(regex):
-        logging.info(regex + " No regex matches")
-        output(silent, Codes.BAD.value, "No matches")
+    if files:
+        # i = 0
+        # l = len(files)
+        # print_progress_bar(i, l, prefix='Progress:', suffix='Complete', length=50)
+        for obj in glob.glob(regex):
+            files_num += remove(obj, trash_path, info_path, dry, silent, force)[1]
+            # i += 1
+            # print_progress_bar(i, l, prefix='Progress:', suffix='Complete', length=50)
 
     else:
-        for obj in glob.glob(regex):
-            files_num += remove(obj, trash_path, info_path, dry=dry, silent=silent, by_re=True)
+        logging.info(regex + " No regex matches")
+        code = Codes.NO_FILE.value
 
-    output(silent, Codes.GOOD.value)
-    return files_num
+    return code, files_num
 
 
 # :*(
-def recursive(path1, path2):
+def recover_recursive(path1, path2):
     if os.path.isdir(path1):
         if os.path.exists(path2):
             for obj in path1:
@@ -189,7 +164,7 @@ def recursive(path1, path2):
                     os.replace(p1_obj, p2_obj)
                 elif os.path.isdir(p1_obj):
                     if os.path.exists(p2_obj):
-                        recursive(p1_obj, p2_obj)
+                        recover_recursive(p1_obj, p2_obj)
                     else:
                         shutil.move(p1_obj, p2_obj)
         shutil.rmtree(path1)
@@ -199,6 +174,7 @@ def recursive(path1, path2):
 
 
 def recover(target, trash_path, info_path, dry, silent):
+    code = Codes.GOOD.value
     try:
         info = os.path.join(info_path, target)
         trash = os.path.join(trash_path, target)
@@ -212,14 +188,14 @@ def recover(target, trash_path, info_path, dry, silent):
             os.replace(trash, path)
             os.remove(info)
             logging.info(target + " File recovered")
-            output(silent, Codes.GOOD.value, "File was recovered")
 
         else:
-            print(path, " would be recovered")
+            if not silent:
+                print(path, " would be recovered")
 
     except FileNotFoundError:
         logging.error(target + " No such file to recover")
-        output(silent, Codes.BAD.value, "No such file")
+        return Codes.NO_FILE.value
 
     except OSError:
         if os.path.isdir(trash):
@@ -233,16 +209,14 @@ def recover(target, trash_path, info_path, dry, silent):
         os.remove(info)
 
         logging.info(target + " Recovery conflict")
-        output(silent, Codes.ALMOST_GOOD.value, "Directory already exists but conflict solved")
 
     except Exception:
         logging.error("Unknown error")
-        output(silent, Codes.BAD.value, "Some $hit happened")
 
-    return 0
+    return code
 
 
-def empty_trash(trash_path, info_path, silent):
+def empty_trash(trash_path, info_path):
     try:
         for obj in os.listdir(trash_path):
             trash = os.path.join(trash_path, obj)
@@ -258,25 +232,33 @@ def empty_trash(trash_path, info_path, silent):
             os.remove(os.path.join(info_path, obj))
 
         logging.info("Trash cleared")
-        output(silent, Codes.GOOD.value, "Trash is empty now")
+        return Codes.GOOD.value
 
     except Exception:
         logging.error("Unknown error")
-        output(silent, Codes.BAD.value, "Some $hit happened")
-
-    return 0
+        return Codes.BAD.value
 
 
 def show_trash(trash_path, num):
     trash_list = os.listdir(trash_path)[-num:]
-    for x in trash_list:
-        print(x)
-    if len(trash_list):
+    for file in trash_list:
+        print(file)
+    if trash_list:
         print("Last %d elements in trash" % len(trash_list))
     else:
         print("Trash is empty")
 
     return len(trash_list)
+
+
+def recycle_policy(policy, trash_path, info_path, day=6, size=100000):
+    if policy == "time":
+        if datetime.datetime.today().isoweekday() == day:
+            empty_trash(trash_path, info_path)
+    if policy == "size":
+        if get_size(trash_path) + get_size(info_path) >= size:
+            empty_trash(trash_path, info_path)
+    return policy
 
 
 if __name__ == '__main__':

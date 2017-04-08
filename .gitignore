@@ -3,3 +3,7 @@ __pycache__
 *.pyo
 *.egg-info
 .idea
+dist
+build
+rmpy.egg-info
+mylog.log

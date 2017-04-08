@@ -29,38 +29,38 @@ class TestRMPY(unittest.TestCase):
                 pass
 
     def tearDown(self):
-        empty_trash(trash_path, info_path, silent)
+        empty_trash(trash_path, info_path)
         if os.path.exists("test_dir"):
             shutil.rmtree("test_dir")
 
     def test_remove_relative(self):
-        self.assertEqual(invoker(remove, "test_dir"), 4)
+        self.assertEqual(invoker(remove, "test_dir")[1], 4)
 
     def test_remove_absolute(self):
         abs_path = os.path.join(os.getcwd(), "test_dir/a.txt")
-        self.assertEqual(invoker(remove, abs_path), 1)
+        self.assertEqual(invoker(remove, abs_path)[1], 1)
 
     def test_no_file_to_remove(self):
-        self.assertEqual(invoker(remove, "test_dir/f.txt"), 0)
+        self.assertEqual(invoker(remove, "test_dir/f.txt")[1], 0)
 
     def test_remove_by_regex(self):
-        self.assertEqual(invoker(remove_by_regex, "test_dir/*.txt"), 3)
+        self.assertEqual(invoker(remove_by_regex, "test_dir/*.txt")[1], 3)
 
     def test_remove_by_regex_dry(self):
-        self.assertEqual(remove_by_regex("test_dir/*.txt", trash_path, info_path, dry=True, silent=False), 0)
+        self.assertEqual(remove_by_regex("test_dir/*.txt", trash_path, info_path, dry=True, silent=False)[1], 0)
 
     def test_no_regex_matches(self):
-        self.assertEqual(invoker(remove_by_regex, "test_dir/*.cfg"), 0)
+        self.assertEqual(invoker(remove_by_regex, "test_dir/*.cfg")[1], 0)
 
     def test_recover_folder(self):
         invoker(remove, "test_dir")
         self.assertRaises(Exception, invoker(recover, "test_dir"))
 
     def test_recover_child_and_parent(self):
-        remove("test_dir/a.txt", trash_path, info_path, dry, silent)
-        remove("test_dir", trash_path, info_path, dry, silent)
-        recover("a.txt", trash_path, info_path, dry, silent)
-        recover("test_dir", trash_path, info_path, dry, silent)
+        invoker(remove, "test_dir/a.txt")
+        invoker(remove, "test_dir")
+        invoker(recover, "a.txt")
+        invoker(recover, "test_dir")
 
 
 if __name__ == '__main__':

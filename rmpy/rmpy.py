@@ -81,8 +81,8 @@ def main():
         output(silent, code, "File recovered")
 
     if args.regex:
-        answer = remove_by_regex(args.regex, trash_path, info_path, dry, silent, force)
-        output(silent, answer[0], answer[1], " File(s) were removed")
+        code, files_num = remove_by_regex(args.regex, trash_path, info_path, dry, silent, force)
+        output(silent, code, files_num, " File(s) were removed")
 
     if args.empty:
         code = empty_trash(trash_path, info_path)
@@ -163,24 +163,28 @@ def remove_by_regex(regex, trash_path, info_path, dry, silent, force=False):
     return code, files_num
 
 
-# :*(
-def recover_recursive(path1, path2):
-    if os.path.isdir(path1):
-        if os.path.exists(path2):
-            for obj in path1:
-                p1_obj = os.path.join(path1, obj)
-                p2_obj = os.path.join(path2, obj)
-                if not os.path.isdir(p1_obj):
-                    os.replace(p1_obj, p2_obj)
-                elif os.path.isdir(p1_obj):
-                    if os.path.exists(p2_obj):
-                        recover_recursive(p1_obj, p2_obj)
-                    else:
-                        shutil.move(p1_obj, p2_obj)
-        shutil.rmtree(path1)
-    else:
-        shutil.rmtree(path2)
-        os.replace(path1, path2)
+def recover_recursive(trash, path):
+    if not os.path.isdir(trash):
+        if os.path.exists(path):
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            os.replace(trash, path)
+    if os.path.isdir(trash):
+        if os.path.exists(path):
+            if os.path.isdir(path):
+                for obj in os.listdir(trash):
+                    trash_child = os.path.join(trash, obj)
+                    path_child = os.path.join(path, obj)
+                    if not os.path.isdir(trash_child):
+                        os.replace(trash_child, path_child)
+                    elif os.path.isdir(trash_child):
+                        if os.path.exists(path_child):
+                            recover_recursive(trash_child, path_child)
+                        else:
+                            shutil.move(trash_child, path_child)
+            else:
+                os.remove(path)
+                shutil.move(trash, path)
 
 
 def recover(target, trash_path, info_path, dry, silent):
@@ -205,23 +209,18 @@ def recover(target, trash_path, info_path, dry, silent):
 
     except FileNotFoundError:
         logging.error(target + " No such file to recover")
-        return Codes.NO_FILE.value
+        code = Codes.NO_FILE.value
 
     except OSError:
-        if os.path.isdir(trash):
-            if os.path.isdir(path):
-                shutil.rmtree(path)
-                shutil.move(trash, path)
-            else:
-                os.replace(path)
-                shutil.move(trash, path)
-
+        recover_recursive(trash, path)
         os.remove(info)
 
         logging.info(target + " Recovery conflict")
+        code = Codes.CONFLICT.value
 
     except Exception:
         logging.error("Unknown error")
+        code = Codes.BAD.value
 
     return code
 

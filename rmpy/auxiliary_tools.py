@@ -37,7 +37,7 @@ def output(silent, code, *args):
     }
     if not silent:
         if code == Codes.GOOD.value:
-            print(''.join(map(str, args)))
+            print(''.join([str(x) for x in args]))
         else:
             print(phrases[code])
     sys.exit(code)

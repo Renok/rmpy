@@ -1,10 +1,11 @@
 {
-  "trash_path": "/home/pride/Workspace/univ/python/lab2/trash/files/",
-  "info_path": "/home/pride/Workspace/univ/python/lab2/trash/info/",
+  "trash": "/home/pride/Workspace/univ/python/lab2/trash/",
   "log_path": "/home/pride/Workspace/univ/python/lab2/mylog.log",
   "dry": false,
   "silent": false,
   "confirm": false,
   "policy": "size",
-  "force": false
+  "force": false,
+  "size": 1000000,
+  "day": 6
 }

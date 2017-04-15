@@ -16,7 +16,7 @@ from rmpy.auxiliary_tools import Codes, ask_confirmation, get_size, output, prin
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("remove", nargs="*", help="Delete files")
+    parser.add_argument("targets", nargs="*", help="Delete files")
     parser.add_argument("-rec", dest="recover", help="Recover file")
     parser.add_argument("-re", dest="regex", help="Use regex")
     parser.add_argument("-e", dest="empty", action="store_true", help="Empty trash")
@@ -28,9 +28,9 @@ def main():
     parser.add_argument("--show", nargs="?", const=10, help="Show trash")
     parser.add_argument("--trash", help="Trash path")
     parser.add_argument("--config", help="Upload config")
-    parser.add_argument("--policy", help="Recycle policy")
-    parser.add_argument("--size", help="Policy size")
-    parser.add_argument("--day", help="Policy day")
+    parser.add_argument("--policy", help="Set recycle policy")
+    parser.add_argument("--size", help="Set policy size")
+    parser.add_argument("--day", help="Set policy day")
     args = parser.parse_args()
 
     config = load_config()
@@ -77,9 +77,9 @@ def main():
     if confirm:
         ask_confirmation()
 
-    if args.remove:
+    if args.targets:
         files_num = 0
-        for target in args.remove:
+        for target in args.targets:
             code, files = remove(target, trash_path, info_path, dry, silent, force)
             if code != Codes.GOOD.value:
                 output(silent, code, files, " File(s) were removed")
@@ -191,7 +191,7 @@ def remove_by_regex(regex, trash_path, info_path, dry=False, silent=False, force
 
 
 def recover_recursive(trash, path):
-    """Recursive function for solving conflicts, some code can be redundant"""
+    """Hard-coded recursive function for solving conflicts, some code can be redundant"""
     if os.path.isdir(trash):
         if os.path.exists(path):
             if os.path.isdir(path):

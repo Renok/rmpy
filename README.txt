@@ -13,17 +13,21 @@ JSON
   "silent": false,
   "confirm": false,
   "policy": "size",
-  "force": false
+  "force": false,
+  "size": 100000,
+  "day": 6
 }
 
 TXT
-"trash": "/home/pride/Workspace/univ/python/lab2/trash/"
-"log_path": "/home/pride/Workspace/univ/python/lab2/mylog.log"
-"dry": 0
-"silent": 0
-"confirm": 0
-"policy": "size",
-"force": 0
+trash = /home/pride/Workspace/univ/python/lab2/trash/
+log_path = /home/pride/Workspace/univ/python/lab2/mylog.log
+dry = 0
+silent = 0
+confirm = 0
+policy = size
+force = 0
+size = 10000
+day = 6
 
 @params:
     trash - path to trash

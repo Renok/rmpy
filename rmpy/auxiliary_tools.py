@@ -11,13 +11,13 @@ class Codes(Enum):
     NO_FILE = 3
 
 
-def confirmation():
+def ask_confirmation():
     answer = input("Are you sure? [y/n]\n")
     if answer == "n":
         print("Operation canceled")
         sys.exit(Codes.GOOD.value)
     elif answer != "y" and answer != "n":
-        confirmation()
+        ask_confirmation()
 
 
 def get_size(path):

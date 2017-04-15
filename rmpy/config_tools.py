@@ -1,12 +1,21 @@
 import os
 import json
 
-base_config = "config.json"
+base_config = "/home/pride/Workspace/univ/python/lab2/config.json"
 
 
 def load_config(config_file=base_config):
     booleans = ["1", "0"]
-    config = {}
+    config = {"trash": "/home/pride/Workspace/univ/python/lab2/trash/",
+              "log_path": "/home/pride/Workspace/univ/python/lab2/mylog.log",
+              "dry": False,
+              "silent": False,
+              "confirm": False,
+              "policy": "size",
+              "force": False,
+              "size": 100000,
+              "day": 6
+              }
     try:
         ext = os.path.splitext(config_file)[1]
 

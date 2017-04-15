@@ -11,10 +11,6 @@ dry = False
 silent = False
 
 
-def invoker(func, path):
-    return func(path, trash_path, info_path, dry, silent)
-
-
 logging.basicConfig(format=u'%(levelname)-8s [%(asctime)s] %(message)s', level=logging.DEBUG, filename=log_path)
 
 
@@ -29,39 +25,78 @@ class TestRMPY(unittest.TestCase):
                 pass
 
     def tearDown(self):
-        empty_trash(trash_path, info_path)
+        empty_trash(trash_path, info_path, dry, silent)
         if os.path.exists("test_dir"):
             shutil.rmtree("test_dir")
 
-    def test_remove_relative(self):
-        self.assertEqual(invoker(remove, "test_dir")[1], 4)
+    def test_remove_file_relative(self):
+        file = "test_dir/a.txt"
+        remove(file, trash_path, info_path)
+        self.assertFalse(os.path.exists(file))
+        self.assertTrue(os.path.exists(os.path.join(trash_path, "a.txt")))
 
-    def test_remove_absolute(self):
-        abs_path = os.path.join(os.getcwd(), "test_dir/a.txt")
-        self.assertEqual(invoker(remove, abs_path)[1], 1)
+    def test_remove_file_absolute(self):
+        file = os.path.abspath("test_dir/a.txt")
+        remove(file, trash_path, info_path)
+        self.assertFalse(os.path.exists(file))
+        self.assertTrue(os.path.exists(os.path.join(trash_path, "a.txt")))
 
-    def test_no_file_to_remove(self):
-        self.assertEqual(invoker(remove, "test_dir/f.txt")[1], 0)
+    def test_remove_dir_relative(self):
+        dir = "test_dir"
+        remove(dir, trash_path, info_path)
+        self.assertFalse(os.path.exists(dir))
+        self.assertTrue(os.path.exists(os.path.join(trash_path, dir)))
+
+    def test_remove_dir_absolute(self):
+        dir = "test_dir"
+        dir_path = os.path.abspath(dir)
+        remove(dir_path, trash_path, info_path)
+        self.assertFalse(os.path.exists(dir_path))
+        self.assertTrue(os.path.exists(os.path.join(trash_path, dir)))
+
+    def test_recover_file(self):
+        remove("test_dir/a.txt", trash_path, info_path)
+        self.assertFalse(os.path.exists("test_dir/a.txt"))
+        recover("a.txt", trash_path, info_path)
+        self.assertTrue(os.path.exists("test_dir/a.txt"))
+
+    def test_recover_dir(self):
+        dir = "test_dir"
+        remove(dir, trash_path, info_path)
+        self.assertFalse(os.path.exists(dir))
+        recover(dir, trash_path, info_path)
+        self.assertTrue(os.path.exists(dir))
 
     def test_remove_by_regex(self):
-        self.assertEqual(invoker(remove_by_regex, "test_dir/*.txt")[1], 3)
+        remove_by_regex("test_dir/*.txt", trash_path, info_path, silent=True)
+        self.assertFalse(os.path.exists("test_dir/b.txt"))
+        self.assertTrue(os.path.exists(os.path.join(trash_path, "b.txt")))
 
-    def test_remove_by_regex_dry(self):
-        self.assertEqual(remove_by_regex("test_dir/*.txt", trash_path, info_path, dry=True, silent=False)[1], 0)
+    def test_recover_conflict_file_and_dir(self):
+        remove("test_dir", trash_path, info_path)
+        with open("test_dir", "w"):
+            pass
+        recover("test_dir", trash_path, info_path)
+        self.assertTrue(os.path.isdir("test_dir"))
 
-    def test_no_regex_matches(self):
-        self.assertEqual(invoker(remove_by_regex, "test_dir/*.cfg")[1], 0)
+    def test_recover_hard_conflict(self):
+        os.makedirs("test_dir/a/b/c")
+        with open("test_dir/a/b/b.txt", "w"): pass
+        with open("test_dir/a/b/c/c.txt", "w"): pass
+        remove("test_dir/a/b/b.txt", trash_path, info_path)
+        remove("test_dir", trash_path, info_path)
+        recover("b.txt", trash_path, info_path)
+        recover("test_dir", trash_path, info_path)
+        self.assertTrue(os.path.exists("test_dir/a/b/c/c.txt"))
+        self.assertTrue(os.path.exists("test_dir/a/b/b.txt"))
 
-    def test_recover_folder(self):
-        invoker(remove, "test_dir")
-        self.assertRaises(Exception, invoker(recover, "test_dir"))
+    def test_deleted_files_num(self):
+        _, files_num = remove("test_dir", trash_path, info_path)
+        self.assertEqual(files_num, 4)
 
-    def test_recover_child_and_parent(self):
-        invoker(remove, "test_dir/a.txt")
-        invoker(remove, "test_dir")
-        invoker(recover, "a.txt")
-        invoker(recover, "test_dir")
-
+    def test_deleted_files_dry_num(self):
+        _, files_num = remove("test_dir", trash_path, info_path, dry=True)
+        self.assertEqual(files_num, 0)
 
 if __name__ == '__main__':
     unittest.main()

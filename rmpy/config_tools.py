@@ -35,6 +35,6 @@ def load_config(config_file=base_config):
                         config[line[0]] = (line[1])
 
     except Exception:
-        print("Error")
+        print("Config Error")
 
     return config

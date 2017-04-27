@@ -1,7 +1,7 @@
-Description
-===========
+Quickstart:
 
-RM analogue
+Change paths in config.json and config_tools.py
+Then write "python setup.py install" in the terminal
 
 Config example:
 

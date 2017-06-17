@@ -4,11 +4,13 @@ Unfortunately the remaining 90% is the result of falling into the Ballmer tail.
 """
 
 import os
+import re
 import glob
 import shutil
 import logging
 import argparse
 import datetime
+import multiprocessing
 
 from rmpy.config_tools import load_config
 from rmpy.auxiliary_tools import Codes, ask_confirmation, get_size, output, print_progress_bar
@@ -18,7 +20,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("targets", nargs="*", help="Delete files")
     parser.add_argument("-rec", dest="recover", help="Recover file")
-    parser.add_argument("-re", dest="regex", help="Use regex")
+    parser.add_argument("-p", dest="pattern", help="Use pattern")
+    parser.add_argument("-re", nargs=2, dest="regex", help="Use regex")
     parser.add_argument("-e", dest="empty", action="store_true", help="Empty trash")
     parser.add_argument("-f", dest="force", action="store_true", help="Ignore nonexistent files")
     parser.add_argument("-c", dest="confirm", action="store_true", help="Confirmation mode")
@@ -91,7 +94,11 @@ def main():
         output(silent, code, "File recovered")
 
     if args.regex:
-        code, files_num = remove_by_regex(args.regex, trash_path, info_path, dry, silent, force)
+        code, files_num = remove_by_regex(args.regex[0], args.regex[1], trash_path, info_path, dry, silent, force)
+        output(silent, code, files_num, " File(s) were removed")
+
+    if args.pattern:
+        code, files_num = remove_by_pattern(args.pattern, trash_path, info_path, dry, silent, force)
         output(silent, code, files_num, " File(s) were removed")
 
     if args.empty:
@@ -162,12 +169,12 @@ def remove(target, trash_path, info_path, dry=False, silent=False, force=False):
     return code, files_num
 
 
-def remove_by_regex(regex, trash_path, info_path, dry=False, silent=False, force=False):
+def remove_by_pattern(pattern, trash_path, info_path, dry=False, silent=False, force=False):
     files_removed = 0
     code = Codes.GOOD.value
 
-    # List of files names by regex
-    files = glob.glob(regex)
+    # List of files names by pattern
+    files = glob.glob(pattern)
 
     if files:
         iteration = 0
@@ -184,6 +191,24 @@ def remove_by_regex(regex, trash_path, info_path, dry=False, silent=False, force
                 print_progress_bar(iteration, total_files, prefix='Progress:', suffix='Complete', length=50)
 
     else:
+        logging.info(pattern + " No pattern matches")
+        code = Codes.NO_FILE.value
+
+    return code, files_removed
+
+
+def remove_by_regex(target_subtree_path, regex, trash_path, info_path, dry=False, silent=False, force=False):
+    files_removed = 0
+    code = Codes.GOOD.value
+
+    for root, dirs, files in os.walk(target_subtree_path):
+        for file in filter(lambda x: re.match(regex, x), files):
+            files_removed += 1
+            target = os.path.join(root, file)
+            p = multiprocessing.Process(target=remove, args=(target, trash_path, info_path, dry, silent, force))
+            p.start()
+
+    if not files_removed:
         logging.info(regex + " No regex matches")
         code = Codes.NO_FILE.value
 
